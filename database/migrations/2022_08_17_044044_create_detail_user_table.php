@@ -17,7 +17,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('users_id')->nullable()->index('fk_detail_user_to_users');
             $table->longText('photo')->nullable();
-            $table->string('role');
+            $table->string('role')->nullable();
             $table->string('contact_number')->nullable();
             $table->longText('biography')->nullable();
             $table->softDeletes();

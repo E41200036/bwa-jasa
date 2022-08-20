@@ -21,16 +21,16 @@ class UsersTableSeeder extends Seeder
                 'email'          => 'aprilia@gmail.com',
                 'password'       => password_hash('password' , PASSWORD_DEFAULT),
                 'remember_token' => null,
-                'created_at' => now(),
-                'updated_at' => now(),
+                'created_at'     => now(),
+                'updated_at'     => now(),
             ],
             [
                 'name'           => 'ifa',
                 'email'          => 'ifa@gmail.com',
                 'password'       => password_hash('password' , PASSWORD_DEFAULT),
                 'remember_token' => null,
-                'created_at' => now(),
-                'updated_at' => now(),
+                'created_at'     => now(),
+                'updated_at'     => now(),
             ],
         ];
 
