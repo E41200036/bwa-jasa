@@ -33,7 +33,7 @@ Route::resource('/', LandingController::class);
 Route::group(['prefix' => 'member', 'as' => 'member.', 'middleware' => ['auth:sanctum', 'verified']], function() {
 
     // dashboard
-    Route::resource('dashboard', MemberController::class);
+    Route::resource('dashboard', MemberController::class)->only(['index']);
 
     // service
     Route::resource('service', ServiceController::class);
@@ -48,25 +48,6 @@ Route::group(['prefix' => 'member', 'as' => 'member.', 'middleware' => ['auth:sa
     Route::resource('order', MyOrderController::class);
 
     // profile
-    Route::get('delete_photo/{id}', [ProfileController::class, 'deletePhoto'])->name('delete.photo.profile');
+    Route::get('delete_photo', [ProfileController::class, 'deletePhoto'])->name('delete.photo.profile');
     Route::resource('profile', ProfileController::class);
 });
-
-
-
-
-
-
-// Route::get('', function () {
-//     return view('welcome');
-// });
-
-// Route::middleware([
-//     'auth:sanctum',
-//     config('jetstream.auth_session'),
-//     'verified'
-// ])->group(function () {
-//     Route::get('dashboard', function () {
-//         return view('dashboard');
-//     })->name('dashboard');
-// });

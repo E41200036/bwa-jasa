@@ -40,6 +40,6 @@ class DetailUser extends Model
     // one to many
     public function expirienceUser()
     {
-        return $this->belongsTo(ExperienceUser::class, 'detail_user_id', 'id');
+        return $this->hasMany(ExperienceUser::class, 'detail_user_id', 'id');
     }
 }

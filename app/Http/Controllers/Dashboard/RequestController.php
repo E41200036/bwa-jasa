@@ -3,10 +3,15 @@
 namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
+use App\Models\Order;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class RequestController extends Controller
 {
+    public function __construct() {
+        $this->middleware('auth');
+    }
     /**
      * Display a listing of the resource.
      *
@@ -14,7 +19,9 @@ class RequestController extends Controller
      */
     public function index()
     {
-        return view('pages.dashboard.request.index');
+        return view('pages.dashboard.request.index', [
+            'order' => Order::where('buyer_id', Auth::user()->id)->get(),
+        ]);
     }
 
     /**
@@ -24,7 +31,7 @@ class RequestController extends Controller
      */
     public function create()
     {
-        //
+        abort(404);
     }
 
     /**
@@ -35,7 +42,7 @@ class RequestController extends Controller
      */
     public function store(Request $request)
     {
-        //
+        abort(404);
     }
 
     /**
@@ -46,7 +53,9 @@ class RequestController extends Controller
      */
     public function show($id)
     {
-        return view('pages.dashboard.request.detail');
+        return view('pages.dashboard.request.detail', [
+            'order' => Order::find($id),
+        ]);
     }
 
     /**
@@ -57,7 +66,7 @@ class RequestController extends Controller
      */
     public function edit($id)
     {
-        //
+        abort(404);
     }
 
     /**
@@ -80,13 +89,18 @@ class RequestController extends Controller
      */
     public function destroy($id)
     {
-        //
+        abort(404);
     }
 
     // custom
 
     public function approve($id)
     {
+        Order::where('id', $id)->update([
+            'status_order_id' => 1
+        ]);
 
+        toast()->success('Approve has been success');
+        return redirect()->route('member.request.index');
     }
 }
