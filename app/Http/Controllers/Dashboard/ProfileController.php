@@ -89,16 +89,18 @@ class ProfileController extends Controller
         $dataDetailUser = $detailUserRequest->all();
 
 
-        $filename = uniqid() . $profileRequest->photo->getClientOriginalName();
 
         // delete old file
         if ($profileRequest->hasFile('photo')) {
-            $photo = DetailUser::where('users_id', Auth::user()->id)->first()['photo'];
-            if (file_exists(public_path($photo))) {
+            $photo = Auth::user()->detailUser->find(Auth::user()->id)->photo;
+            // dd($photo);
+            if (file_exists(public_path($photo)) && $photo) {
                 unlink(public_path($photo));
-            } else {
-                $profileRequest->file('photo')->move('assets/user/', $filename);
             }
+
+            $filename = uniqid() . $profileRequest->file('photo')->getClientOriginalName();
+            $profileRequest->file('photo')->move('assets/user/', $filename);
+            $profileRequest->photo = 'assets/user/' . $filename;
         }
 
         User::where('id', Auth::user()->id)->update([
@@ -107,7 +109,7 @@ class ProfileController extends Controller
         ]);
 
         DetailUser::where('users_id', Auth::user()->id)->update([
-            'photo'          => 'assets/user/' . $filename,
+            'photo'          => $profileRequest->photo ?? null,
             'role'           => $dataDetailUser['role'],
             'contact_number' => $dataDetailUser['contact_number'],
             'biography'      => $dataDetailUser['biography']
@@ -152,7 +154,7 @@ class ProfileController extends Controller
     {
         $detailUser = Auth::user()->detailUser;
 
-        if (file_exists(public_path($detailUser['photo']))) {
+        if ($detailUser['photo'] && file_exists(public_path($detailUser->photo))) {
             unlink(public_path($detailUser['photo']));
         } else {
             $detailUser->photo = null;

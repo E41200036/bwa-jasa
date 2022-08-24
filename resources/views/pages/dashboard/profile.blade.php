@@ -61,9 +61,11 @@
                                                     Delete
                                                 </a>
 
-                                                @if ($errors->has('photo'))
-                                                    <p class="text-red-500 mb-3 text-small">{{ $error->first('photo') }}</p>
-                                                @endif
+
+                                                @error('photo')
+                                                    <p class="text-red-500 mb-3 text-small">{{ $message }}</p>
+                                                @enderror
+
 
                                             </div>
 
