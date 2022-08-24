@@ -89,15 +89,14 @@ class ProfileController extends Controller
         $dataDetailUser = $detailUserRequest->all();
 
 
-        // get photo
+        $filename = uniqid() . $profileRequest->photo->getClientOriginalName();
 
         // delete old file
         if ($profileRequest->hasFile('photo')) {
             $photo = DetailUser::where('users_id', Auth::user()->id)->first()['photo'];
-            if ($photo) {
+            if (file_exists(public_path($photo))) {
                 unlink(public_path($photo));
             } else {
-                $filename = uniqid() . $profileRequest->photo->getClientOriginalName();
                 $profileRequest->file('photo')->move('assets/user/', $filename);
             }
         }
@@ -118,10 +117,10 @@ class ProfileController extends Controller
 
         if (isset($experienceUserId)) {
             foreach ($dataProfile['experience'] as $key => $value) {
-                $experienceUser                 = ExperienceUser::find($key);
-                $experienceUser->detail_user_id = Auth::user()->id;
-                $experienceUser->experience     = $value;
-                $experienceUser->save();
+                ExperienceUser::where('id', $key)->update([
+                    'detail_user_id' => Auth::user()->id,
+                    'experience'     => $value
+                ]);
             }
         } else {
             foreach ($dataProfile['experience'] as $item) {

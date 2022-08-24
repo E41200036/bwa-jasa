@@ -11,7 +11,9 @@ use App\Models\Service;
 use App\Models\Tagline;
 use App\Models\ThumbnailService;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Monolog\Handler\PushoverHandler;
 
 class ServiceController extends Controller
 {
@@ -29,7 +31,7 @@ class ServiceController extends Controller
     public function index()
     {
         return view('pages.dashboard.service.index', [
-            'service' => Auth::user()->service
+            'services' => Auth::user()->service
         ]);
     }
 
@@ -51,47 +53,55 @@ class ServiceController extends Controller
      */
     public function store(StoreServiceRequest $request)
     {
-        $data['users_id'] = Auth::user()->id;
+        try {
+            $service = Service::create([
+                'users_id'       => Auth::user()->id,
+                'title'          => $request->title,
+                'description'    => $request->description,
+                'revision_limit' => $request->revision_limit,
+                'delivery_time'  => $request->delivery_time,
+                'price'          => $request->price,
+                'note'           => $request->note,
+            ]);
 
-        $service = Service::create($request->all());
-
-        foreach ($request->advantage_service as $key => $value) {
-            $advantage_service = new AdvantageService();
-            $advantage_service->users_id = $service->id;
-            $advantage_service->advantage_id = $value;
-            $advantage_service->save();
-        }
-
-        // advantage user
-        foreach ($request->advantage_user as $key => $value) {
-            $advantage_user = new AdvantageService();
-            $advantage_user->users_id = $service->id;
-            $advantage_user->advantage_id = $value;
-            $advantage_user->save();
-        }
-
-        // add to thumbnail service
-        if ($request->hasFile($request->thumbnail)) {
-            foreach ($request->thumbnail as $file) {
-                $path = $file->store('assets/service/thumbnail', 'public');
-
-                $thumbnail_service = new ThumbnailService();
-                $thumbnail_service->service_id = $service['id'];
-                $thumbnail_service->thumbnail = $path;
-                $thumbnail_service->save();
+            foreach ($request->advantage_service as $item) {
+                $advantage_service = AdvantageService::create([
+                    'service_id' => $service['id'],
+                    'advantage'  => $item
+                ]);
             }
-        }
 
-        // tagline
-        foreach ($request->tagline as $value) {
-            $tagline = new Tagline();
-            $tagline->service_id = $service['id'];
-            $tagline->tagline = $value;
-            $tagline->save();
-        }
+            foreach ($request->advantage_user as $item) {
+                $advantage_user = AdvantageUser::create([
+                    'service_id' => $service['id'],
+                    'advantage'  => $item
+                ]);
+            }
 
-        toast()->success('Save has been success');
-        return redirect()->route('member.service.index');
+            foreach ($request->thumbnail_service as $item) {
+                $filename = uniqid() . $item->getClientOriginalName();
+                ThumbnailService::create([
+                    'service_id' => $service['id'],
+                    'thumbnail'  => 'assets/thumbnail-service/' . $filename
+                ]);
+
+                $item->move(public_path('assets/thumbnail-service'), $filename);
+            }
+
+            foreach ($request->tagline as $item) {
+                $tagline = Tagline::create([
+                    'service_id' => $service['id'],
+                    'tagline'  => $item
+                ]);
+            }
+
+            toast()->success('Service has been success');
+            return redirect()->back();
+        } catch (\Throwable $th) {
+            throw $th;
+            toast()->warning('Service has been failed');
+            return redirect()->route('member.service.index');
+        }
     }
 
     /**
@@ -114,6 +124,7 @@ class ServiceController extends Controller
     public function edit(Service $service)
     {
         return view('pages.dashboard.service.edit', [
+            'service'           => $service,
             'advantage_service' => AdvantageService::where('service_id', $service->id)->get(),
             'tagline'           => Tagline::where('service_id', $service->id)->get(),
             'advantage_user'    => AdvantageUser::where('service_id', $service->id)->get(),
@@ -130,90 +141,121 @@ class ServiceController extends Controller
      */
     public function update(UpdateServiceRequest $request, Service $service)
     {
-        // update service
-        $service->update($request->all());
+        DB::beginTransaction();
+        try {
+            $service->update($request->all());
 
-        foreach($request->advantage_service as $key => $value) {
-            $advantage_service = AdvantageService::find($key);
-            $advantage_service->advantage = $value;
-            $advantage_service->save();
-        }
+            // * advantage service
+            if ($request->advantage_service_old) {
 
-        // add new advantage
-        if(isset($request->advantage_service)) {
-            foreach($request->advantage_service as $key => $value) {
-                $advantage_service = new AdvantageService();
-                $advantage_service->service_id = $service->id;
-                $advantage_service->advantage = $value;
-                $advantage_service->save();
-            }
-        }
-
-        foreach($request->advantage_user as $key => $value) {
-            $advantage_user = AdvantageUser::find($key);
-            $advantage_user->advantage = $value;
-            $advantage_user->save();
-        }
-
-        // add new advantage
-        if(isset($request->advantage_user)) {
-            foreach($request->advantage_user as $key => $value) {
-                $advantage_user = new AdvantageUser();
-                $advantage_user->service_id = $service->id;
-                $advantage_user->advantage = $value;
-                $advantage_user->save();
-            }
-        }
-
-        foreach($request->tagline as $key => $value) {
-            $tagline = Tagline::find($key);
-            $tagline->tagline = $value;
-            $tagline->save();
-        }
-
-        // add new advantage
-        if(isset($request->tagline)) {
-            foreach($request->tagline as $key => $value) {
-                $tagline = new Tagline();
-                $tagline->service_id = $service->id;
-                $tagline->tagline = $value;
-                $tagline->save();
-            }
-        }
-
-        if($request->hasFile($request->thumbnails)) {
-            foreach($request->thumbnails as $key => $value) {
-                // get old
-                $getPhoto = ThumbnailService::where('id', $key)->first();
-                // store new photo
-                $path = $value->store('assets/service/thumbnail', 'public');
-                // update thumbnail
-                $thumbnail_service = ThumbnailService::find($key);
-                $thumbnail_service->thumbnail = $path;
-                $thumbnail_service->save();
-
-                $data = 'storage/' . $getPhoto['photo'];
-                if(File::exists($data)) {
-                    File::delete($data);
-                } else {
-                    File::delete('assets/app/public/' . $getPhoto['photo']);
+                foreach ($request->advantage_service_old as $key => $value) {
+                    $advantage_service             = AdvantageService::find($key);
+                    $advantage_service->service_id = $service->id;
+                    $advantage_service->advantage  = $value;
+                    $advantage_service->save();
                 }
             }
-        }
 
-        if($request->hasFile('thumbnail')) {
-            foreach($request->file('thumbnail') as $file) {
-                $path  = $file->store('assets/service/thumbnail', 'public');
+            if ($request->advantage_service) {
 
-                $thumbnail_service = new ThumbnailService();
-                $thumbnail_service->service_id = $service['id'];
-                $thumbnail_service->thumbnail = $path;
-                $thumbnail_service->save();
+                foreach ($request->advantage_service as $value) {
+                    AdvantageService::create([
+                        'service_id' => $service->id,
+                        'advantage'  => $value
+                    ]);
+                }
             }
-        }
 
-        toast()->success('Update has been success');
-        return back();
+            // * advantage user
+            if ($request->advantage_user_old) {
+
+                foreach ($request->advantage_user_old as $key => $value) {
+                    $advantage_user             = AdvantageUser::find($key);
+                    $advantage_user->service_id = $service->id;
+                    $advantage_user->advantage  = $value;
+                    $advantage_user->save();
+                }
+            }
+
+            if ($request->advantage_user) {
+
+                foreach ($request->advantage_user as $value) {
+                    AdvantageUser::create([
+                        'service_id' => $service->id,
+                        'advantage'  => $value
+                    ]);
+                }
+            }
+
+            // * tagline
+            if ($request->tagline_old) {
+
+                foreach ($request->tagline_old as $key => $value) {
+                    $tagline             = Tagline::find($key);
+                    $tagline->service_id = $service->id;
+                    $tagline->tagline    = $value;
+                    $tagline->save();
+                }
+            }
+
+            if ($request->tagline) {
+
+                foreach ($request->tagline as $value) {
+                    Tagline::create([
+                        'service_id' => $service->id,
+                        'tagline'    => $value
+                    ]);
+                }
+            }
+
+            // * thumbnail service
+            if ($request->thumbnail_service_old) {
+                foreach ($request->thumbnail_service_old as $key => $value) {
+                    if (ThumbnailService::find($key)->id == $key) {
+
+                        // delete old file
+                        $old_photo = ThumbnailService::find($key)->thumbnail;
+                        if ($old_photo) {
+                            unlink(public_path($old_photo));
+                        }
+
+                        $filename = uniqid() . $value->getClientOriginalName();
+
+                        $thumbnail_service             = ThumbnailService::find($key);
+                        $thumbnail_service->service_id = $service->id;
+                        $thumbnail_service->thumbnail  = 'assets/thumbnail-service/' . $filename;
+                        $thumbnail_service->save();
+
+                        // store new file
+                        $value->move(public_path('assets/thumbnail-service'), $filename);
+                    }
+                }
+            }
+
+            if ($request->thumbnail_service) {
+                foreach ($request->thumbnail_service as $key => $value) {
+                    $filename = uniqid() . $value->getClientOriginalName();
+
+                    $thumbnail_service             = new ThumbnailService();
+                    $thumbnail_service->service_id = $service->id;
+                    $thumbnail_service->thumbnail  = 'assets/thumbnail-service/' . $filename;
+                    $thumbnail_service->save();
+
+                    // store new file
+                    $value->move(public_path('assets/thumbnail-service'), $filename);
+                }
+            }
+
+            DB::commit();
+            toast()->success('Update success');
+            return redirect()->back();
+        } catch (\Throwable $th) {
+
+            dd($th);
+            DB::rollBack();
+            toast()->warning('Update failed');
+            return redirect()->back()->with('error', $th->getMessage());
+        }
     }
 
     /**
